@@ -2,6 +2,10 @@ package identitypersister
 
 import (
 	"testing"
+	"github.com/attic-labs/noms/go/spec"
+	"github.com/spf13/afero"
+	"fmt"
+	"github.com/quorumcontrol/qc/identity/identitypb"
 )
 
 
@@ -15,9 +19,24 @@ type MyType struct {
 }
 
 func TestGetFields(t *testing.T) {
-	err := GetFields(&MyType{})
+	fs := afero.NewOsFs()
+	fs.RemoveAll("tmp/noms")
+	fs.MkdirAll("tmp/noms", 0755)
+
+
+	sp,err := spec.ForDataset("nbs:tmp/noms::people")
+
+	if err != nil {
+		t.Fatalf("error getting dataset: %v", err)
+	}
+
+	//err = Save(sp.GetDataset(), *identity.GenerateIdentity("alice", "insaasity"))
+	err = Save(sp.GetDataset(), identitypb.Identity{})
 
 	if err != nil {
 		t.Fatalf("error getting fields: %v", err)
 	}
+
+	val := sp.GetDataset().Head()
+	fmt.Printf("head: %v", val)
 }

@@ -23,7 +23,7 @@
 
 [[constraint]]
   name = "github.com/attic-labs/noms"
-  version = "7.4.0"
+  revision = "76400c6b710112a3ec35cb963c3eea1bb13d9dd3"
 
 [[constraint]]
   name = "github.com/quorumcontrol/qc"

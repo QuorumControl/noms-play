@@ -2,21 +2,32 @@ package identitypersister
 
 import (
 	"fmt"
+	"github.com/quorumcontrol/noms-play/marshal"
+	"github.com/attic-labs/noms/go/datas"
 	"github.com/attic-labs/noms/go/types"
-	"github.com/attic-labs/noms/go/marshal"
-	"github.com/attic-labs/noms/go/chunks"
 )
 
-func newTestValueStore() *types.ValueStore {
-	ts := &chunks.TestStorage{}
-	return types.NewValueStore(ts.NewView())
+func getSet(ds datas.Dataset) types.Set {
+	hv, ok := ds.MaybeHeadValue()
+	if ok {
+		return hv.(types.Set)
+	}
+	return types.NewSet(ds.Database())
 }
 
 
-func GetFields(i interface{}) error {
-	val,err := marshal.Marshal(newTestValueStore(), i)
 
-	fmt.Printf("val: %v", val)
+func Save(ds datas.Dataset, i interface{}) error {
+	val,err := marshal.Marshal(ds.Database(), i)
+	if err != nil {
+		return fmt.Errorf("error marshaling: %v", err)
+	}
 
-	return err
+	_, err = ds.Database().CommitValue(ds, getSet(ds).Edit().Insert(val).Set())
+
+	if err != nil {
+		return fmt.Errorf("error committing values: %v", err)
+	}
+
+	return nil
 }
