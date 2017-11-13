@@ -561,15 +561,8 @@ func typeFields(vrw types.ValueReadWriter, t reflect.Type, seenStructs map[strin
 		var encoder encoderFunc
 
 		if f.Type.Kind() == reflect.Ptr {
-			fmt.Printf("field (ptr): %+v has type: %v\n", f, f.Type.Elem())
-			if f.Type.Implements(marshalerInterface) {
-				fmt.Printf("this ptr field DOES implement marshalerInterface: %v\n", f.Type)
-			} else {
-				fmt.Printf("type %v does not implement marshalerInterface, sending to typeEncoder\n", f.Type)
-			}
 			encoder = typeEncoder(vrw, f.Type.Elem(), seenStructs, tags)
 		} else {
-			fmt.Printf("field (no-ptr): %+v has type: %v\n", f, f.Type)
 			encoder = typeEncoder(vrw, f.Type, seenStructs, tags)
 		}
 

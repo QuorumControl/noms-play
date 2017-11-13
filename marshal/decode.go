@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/attic-labs/noms/go/types"
+	"time"
 )
 
 // Unmarshal converts a Noms value into a Go value. It decodes v and stores the
@@ -91,6 +92,7 @@ func MustUnmarshal(v types.Value, out interface{}) {
 
 // MustUnmarshalOpt is like MustUnmarshal but with additional options.
 func MustUnmarshalOpt(v types.Value, opt Opt, out interface{}) {
+	fmt.Println("unmarshaling called")
 	rv := reflect.ValueOf(out)
 	if rv.Kind() != reflect.Ptr || rv.IsNil() {
 		panic(&InvalidUnmarshalError{reflect.TypeOf(out)})
@@ -170,9 +172,17 @@ func (e *unmarshalNomsError) Error() string {
 type decoderFunc func(v types.Value, rv reflect.Value)
 
 func typeDecoder(t reflect.Type, tags nomsTags) decoderFunc {
+	fmt.Printf("type decoder: %v, %+v\n", t, tags)
 	if reflect.PtrTo(t).Implements(unmarshalerInterface) {
 		return marshalerDecoder(t)
 	}
+
+
+	if t == reflect.TypeOf(time.Time{}) {
+		fmt.Printf("returning timeEncoder for %v\n", t)
+		return timeDecoder
+	}
+
 
 	switch t.Kind() {
 	case reflect.Bool:
@@ -257,6 +267,32 @@ func uintDecoder(v types.Value, rv reflect.Value) {
 	}
 }
 
+func timeDecoder(v types.Value, rv reflect.Value) {
+	if n, ok := v.(types.Number); ok {
+		u := int64(n)
+		if reflect.ValueOf(int64(0)).OverflowInt(u){
+			panic(overflowError(n, rv.Type()))
+		}
+
+		fmt.Printf("rv is: %+v, kind: %v, type: %v\n", rv, rv.Kind(), rv.Type())
+
+		oldTime := time.Unix(0, u)
+
+		newVal := reflect.ValueOf(&oldTime)
+
+		if !rv.IsNil() {
+			newVal = reflect.Indirect(rv)
+		}
+
+
+ 		fmt.Printf("adding duration: %d", u)
+		newVal.Interface().(*time.Time).Add(time.Duration(u))
+		rv.Set(newVal)
+	} else {
+		panic(&UnmarshalTypeMismatchError{v, rv.Type(), ""})
+	}
+}
+
 type decoderCacheT struct {
 	sync.RWMutex
 	m map[reflect.Type]decoderFunc
@@ -313,9 +349,20 @@ func structDecoderFields(t reflect.Type) []decField {
 
 		validateField(f, t)
 
+
+		var decoder decoderFunc
+
+		if f.Type.Kind() == reflect.Ptr {
+			fmt.Printf("field (ptr): %+v has type: %v\n", f, f.Type.Elem())
+			decoder = typeDecoder(f.Type.Elem(), tags)
+		} else {
+			fmt.Printf("field (no-ptr): %+v has type: %v\n", f, f.Type)
+			decoder = typeDecoder(f.Type, tags)
+		}
+
 		fields = append(fields, decField{
 			name:      tags.name,
-			decoder:   typeDecoder(f.Type, tags),
+			decoder:   decoder,
 			index:     index,
 			omitEmpty: tags.omitEmpty,
 			original:  tags.original,
@@ -337,18 +384,39 @@ func structDecoder(t reflect.Type) decoderFunc {
 	fields := structDecoderFields(t)
 
 	d = func(v types.Value, rv reflect.Value) {
+
+		var typeElement reflect.Type
+		var newEl reflect.Value
+		var newElPointer reflect.Value
+
+		if rv.Type().Kind() == reflect.Ptr {
+			typeElement = rv.Type().Elem()
+			newElPointer = reflect.New(typeElement)
+			newEl = reflect.Indirect(newElPointer)
+		} else {
+			typeElement = rv.Type()
+			newEl = rv
+		}
+
+
 		s, ok := v.(types.Struct)
 		if !ok {
+			fmt.Println("unmatched struct")
 			panic(&UnmarshalTypeMismatchError{v, rv.Type(), ", expected struct"})
 		}
 
 		for _, f := range fields {
-			sf := rv.FieldByIndex(f.index)
+			fmt.Printf("about to sf, rv: %+v, rvtype: %v, f: %+v\n", rv, rv.Type(), f)
+
+			sf := newEl.FieldByIndex(f.index)
+
+			fmt.Printf("after sf rv: %+v, sf: %+v, f: %+v\n", rv, sf, f)
+
 			if f.original {
 				if sf.Type() != reflect.TypeOf(s) {
 					panic(&UnmarshalTypeMismatchError{v, rv.Type(), ", field with tag \"original\" must have type Struct"})
 				}
-				sf.Set(reflect.ValueOf(s))
+				rv.Set(reflect.ValueOf(s))
 				continue
 			}
 			fv, ok := s.MaybeGet(f.name)
@@ -356,6 +424,10 @@ func structDecoder(t reflect.Type) decoderFunc {
 				f.decoder(fv, sf)
 			} else if !f.omitEmpty {
 				panic(&UnmarshalTypeMismatchError{v, rv.Type(), ", missing field \"" + f.name + "\""})
+			}
+
+			if rv.Type().Kind() == reflect.Ptr {
+				rv.Set(newElPointer)
 			}
 		}
 	}
@@ -373,12 +445,19 @@ func nomsValueDecoder(v types.Value, rv reflect.Value) {
 
 func marshalerDecoder(t reflect.Type) decoderFunc {
 	return func(v types.Value, rv reflect.Value) {
+		fmt.Printf("marshaler decoder: t: %v, v: %v, rv: %v \n", t, v, rv)
+
 		ptr := reflect.New(t)
 		err := ptr.Interface().(Unmarshaler).UnmarshalNoms(v)
 		if err != nil {
 			panic(&unmarshalNomsError{err})
 		}
-		rv.Set(ptr.Elem())
+		if rv.Kind() == reflect.Ptr {
+			rv.Set(ptr)
+		} else {
+			rv.Set(ptr.Elem())
+		}
+
 	}
 }
 
@@ -520,6 +599,7 @@ func mapDecoder(t reflect.Type, tags nomsTags) decoderFunc {
 
 		nomsMap, ok := v.(types.Map)
 		if !ok {
+			fmt.Println("nomMap is what failed")
 			panic(&UnmarshalTypeMismatchError{v, t, ""})
 		}
 
@@ -540,7 +620,16 @@ func mapDecoder(t reflect.Type, tags nomsTags) decoderFunc {
 
 	decoderCache.set(t, d)
 	keyDecoder = typeDecoder(t.Key(), nomsTags{})
-	valueDecoder = typeDecoder(t.Elem(), nomsTags{})
+
+	var t2 reflect.Type
+
+	if t.Elem().Kind() == reflect.Ptr {
+		t2 = t.Elem().Elem()
+	} else {
+		t2 = t.Elem()
+	}
+
+	valueDecoder = typeDecoder(t2, nomsTags{})
 	return d
 }
 
