@@ -51,8 +51,10 @@ func CertificateDecoder(v types.Value, rv reflect.Value) {
 func getIdentities(ds datas.Dataset) types.Map {
 	hv, ok := ds.MaybeHeadValue()
 	if ok {
+		fmt.Println("returning existing map")
 		return hv.(types.Map)
 	}
+	fmt.Println("returning empty map")
 	return types.NewMap(ds.Database())
 }
 
