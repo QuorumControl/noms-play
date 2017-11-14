@@ -6,7 +6,47 @@ import (
 	"github.com/attic-labs/noms/go/datas"
 	"github.com/attic-labs/noms/go/types"
 	"github.com/quorumcontrol/qc/identity/identitypb"
+	"reflect"
+	"github.com/quorumcontrol/qc/simpcert"
 )
+
+func init() {
+	simpcertType := reflect.TypeOf(simpcert.Certificate{})
+
+	marshal.RegisterEncoder(simpcertType, CertificateEncoder)
+	marshal.RegisterDecoder(simpcertType, CertificateDecoder)
+}
+
+func CertificateEncoder(v reflect.Value) types.Value {
+	if !v.IsValid() {
+		return types.String("")
+	}
+
+	cert := v.Interface().(simpcert.Certificate)
+	pnter := &cert
+
+	bytes,err := pnter.Marshal()
+
+	if err != nil {
+		panic("cannot marshal the simpcert")
+	}
+
+	return types.String(string(bytes))
+}
+
+func CertificateDecoder(v types.Value, rv reflect.Value) {
+	if publicPem, ok := v.(types.String); ok {
+
+		fmt.Printf("rv is: %+v, kind: %v, type: %v\n", rv, rv.Kind(), rv.Type())
+
+		cert := &simpcert.Certificate{}
+		cert.LoadFromString(string(publicPem))
+
+		rv.Set(reflect.ValueOf(*cert))
+	} else {
+		panic("simpcert stored in non string format")
+	}
+}
 
 func getIdentities(ds datas.Dataset) types.Map {
 	hv, ok := ds.MaybeHeadValue()

@@ -211,6 +211,9 @@ func typeDecoder(t reflect.Type, tags nomsTags) decoderFunc {
 		if t.Implements(nomsValueInterface) {
 			return nomsValueDecoder
 		}
+
+		return typeDecoder(t.Elem(), tags)
+
 		fallthrough
 	default:
 		panic(&UnsupportedTypeError{Type: t})
@@ -321,20 +324,9 @@ func structDecoderFields(t reflect.Type) []decField {
 
 		validateField(f, t)
 
-
-		var decoder decoderFunc
-
-		if f.Type.Kind() == reflect.Ptr {
-			fmt.Printf("field (ptr): %+v has type: %v\n", f, f.Type.Elem())
-			decoder = typeDecoder(f.Type.Elem(), tags)
-		} else {
-			fmt.Printf("field (no-ptr): %+v has type: %v\n", f, f.Type)
-			decoder = typeDecoder(f.Type, tags)
-		}
-
 		fields = append(fields, decField{
 			name:      tags.name,
-			decoder:   decoder,
+			decoder:   typeDecoder(f.Type, tags),
 			index:     index,
 			omitEmpty: tags.omitEmpty,
 			original:  tags.original,

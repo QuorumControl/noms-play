@@ -28,6 +28,17 @@ func TestGetFields(t *testing.T) {
 	err = Save(sp.GetDataset(), alice)
 
 	if err != nil {
+		t.Fatalf("error saving: %v", err)
+	}
+
+
+	//update alice
+
+	alice.Metadata = map[string]string{"myUpdate": "another thing"}
+
+	err = Save(sp.GetDataset(), alice)
+
+	if err != nil {
 		t.Fatalf("error getting fields: %v", err)
 	}
 
