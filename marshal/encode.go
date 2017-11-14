@@ -121,7 +121,7 @@ func MustMarshal(vrw types.ValueReadWriter, v interface{}) types.Value {
 
 // MustMarshalOpt is like MustMarshal, but with additional options.
 func MustMarshalOpt(vrw types.ValueReadWriter, v interface{}, opt Opt) types.Value {
-	fmt.Printf("MustMarshalOpt: %v\n", v)
+	//fmt.Printf("MustMarshalOpt: %v\n", v)
 	rv := reflect.ValueOf(v)
 	nt := nomsTags{
 		set: opt.Set,
@@ -201,24 +201,24 @@ var structNameMarshalerInterface = reflect.TypeOf((*StructNameMarshaler)(nil)).E
 type encoderFunc func(v reflect.Value) types.Value
 
 func boolEncoder(v reflect.Value) types.Value {
-	return types.Bool(v.Bool())
+	return types.Bool(reflect.Indirect(v).Bool())
 }
 
 func float64Encoder(v reflect.Value) types.Value {
-	return types.Number(v.Float())
+	return types.Number(reflect.Indirect(v).Float())
 }
 
 func intEncoder(v reflect.Value) types.Value {
-	return types.Number(float64(v.Int()))
+	return types.Number(float64(reflect.Indirect(v).Int()))
 }
 
 func uintEncoder(v reflect.Value) types.Value {
-	return types.Number(float64(v.Uint()))
+	return types.Number(float64(reflect.Indirect(v).Uint()))
 }
 
 func stringEncoder(v reflect.Value) types.Value {
-	fmt.Printf("string encoder: %v\n", v)
-	return types.String(v.String())
+	//fmt.Printf("string encoder: %v\n", v)
+	return types.String(reflect.Indirect(v).String())
 }
 
 func nomsValueEncoder(v reflect.Value) types.Value {
@@ -227,11 +227,11 @@ func nomsValueEncoder(v reflect.Value) types.Value {
 
 func marshalerEncoder(vrw types.ValueReadWriter, t reflect.Type) encoderFunc {
 	return func(v reflect.Value) types.Value {
-		fmt.Printf("marshaler encoder called with %+v it is a: %v\n\n", v, v.Kind())
+		//fmt.Printf("marshaler encoder called with %+v it is a: %v\n\n", v, v.Kind())
 		//if v.Kind() == reflect.Ptr {
 		//	v = reflect.Indirect(v)
 		//}
-		//fmt.Printf("marshaler encoder v is now %+v it is a: %v\n\n", v, v.Kind())
+		////fmt.Printf("marshaler encoder v is now %+v it is a: %v\n\n", v, v.Kind())
 
 		var val types.Value
 		var err error
@@ -254,15 +254,15 @@ func marshalerEncoder(vrw types.ValueReadWriter, t reflect.Type) encoderFunc {
 
 func typeEncoder(vrw types.ValueReadWriter, t reflect.Type, seenStructs map[string]reflect.Type, tags nomsTags) encoderFunc {
 
-	fmt.Printf("type: %v\n", t)
+	//fmt.Printf("type: %v\n", t)
 	if t.Implements(marshalerInterface) {
 		return marshalerEncoder(vrw, t)
 	} else {
-		fmt.Println("does not implement marshalerInterface")
+		//fmt.Println("does not implement marshalerInterface")
 	}
 
 	if encoder := GetEncoder(t); encoder != nil {
-		fmt.Printf("using encoder for %v: %v\n", t, encoder)
+		//fmt.Printf("using encoder for %v: %v\n", t, encoder)
 		return encoder
 	}
 
@@ -276,10 +276,10 @@ func typeEncoder(vrw types.ValueReadWriter, t reflect.Type, seenStructs map[stri
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		return uintEncoder
 	case reflect.String:
-		fmt.Printf("returning string encoder for: %+v, %+v\n", t, tags)
+		//fmt.Printf("returning string encoder for: %+v, %+v\n", t, tags)
 		return stringEncoder
 	case reflect.Struct:
-		fmt.Printf("returning struct encoder for: %+v, %+v\n", t, tags)
+		//fmt.Printf("returning struct encoder for: %+v, %+v\n", t, tags)
 		return structEncoder(vrw, t, seenStructs)
 	case reflect.Slice, reflect.Array:
 		if shouldEncodeAsSet(t, tags) {
@@ -320,7 +320,7 @@ func getStructName(t reflect.Type) string {
 }
 
 func structEncoder(vrw types.ValueReadWriter, t reflect.Type, seenStructs map[string]reflect.Type) encoderFunc {
-	fmt.Println("structEncoder")
+	//fmt.Println("structEncoder")
 	if t.Implements(nomsValueInterface) {
 		return nomsValueEncoder
 	}
@@ -335,7 +335,7 @@ func structEncoder(vrw types.ValueReadWriter, t reflect.Type, seenStructs map[st
 	seenStructs[t.Name()] = t
 	fields, knownShape, originalFieldIndex := typeFields(vrw, t, seenStructs, false, false)
 	if knownShape {
-		fmt.Println("known shape")
+		//fmt.Println("known shape")
 		fieldNames := make([]string, len(fields))
 		for i, f := range fields {
 			fieldNames[i] = f.name
@@ -347,19 +347,19 @@ func structEncoder(vrw types.ValueReadWriter, t reflect.Type, seenStructs map[st
 			v = reflect.Indirect(v)
 
 			for i, f := range fields {
-				fmt.Printf("going to encode %+v, index: %d, %+v, %v\n", f, f.index, v, v.Kind())
-				fmt.Printf("field  - encoder is :%v\n", f.encoder)
+				//fmt.Printf("going to encode %+v, index: %d, %+v, %v\n", f, f.index, v, v.Kind())
+				//fmt.Printf("field  - encoder is :%v\n", f.encoder)
 				if !v.IsValid() {
 					values[i] = f.encoder(reflect.Value{})
 				} else {
 					values[i] = f.encoder(v.FieldByIndex(f.index))
 				}
-				//fmt.Printf("values was set: %v\n", values[i])
+				////fmt.Printf("values was set: %v\n", values[i])
 			}
 			return structTemplate.NewStruct(values)
 		}
 	} else if originalFieldIndex == nil {
-		fmt.Println("original field index is nil")
+		//fmt.Println("original field index is nil")
 		// Slower path: cannot precompute the Noms type since there are Noms collections,
 		// but at least there are a set number of fields.
 		e = func(v reflect.Value) types.Value {
@@ -374,7 +374,7 @@ func structEncoder(vrw types.ValueReadWriter, t reflect.Type, seenStructs map[st
 			return types.NewStruct(structName, data)
 		}
 	} else {
-		fmt.Println("else (slow) path")
+		//fmt.Println("else (slow) path")
 		// Slowest path - we are extending some other struct. We need to start with the
 		// type of that struct and extend.
 		e = func(v reflect.Value) types.Value {
@@ -500,7 +500,7 @@ func validateField(f reflect.StructField, t reflect.Type) {
 	// field name. It is empty for upper case (exported) field names.
 	// See https://golang.org/ref/spec#Uniqueness_of_identifiers
 	if f.PkgPath != "" && !f.Anonymous { // unexported
-		fmt.Printf("f: %+v", f)
+		//fmt.Printf("f: %+v", f)
 		panic(&UnsupportedTypeError{t, "Non exported fields are not supported"})
 	}
 }
