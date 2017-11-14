@@ -10,8 +10,6 @@ import (
 	"sync"
 
 	"github.com/attic-labs/noms/go/types"
-	"time"
-	"strconv"
 )
 
 // Unmarshal converts a Noms value into a Go value. It decodes v and stores the
@@ -179,11 +177,10 @@ func typeDecoder(t reflect.Type, tags nomsTags) decoderFunc {
 	}
 
 
-	if t == reflect.TypeOf(time.Time{}) {
-		fmt.Printf("returning timeEncoder for %v\n", t)
-		return timeDecoder
+	if decoder := GetDecoder(t); decoder != nil {
+		fmt.Printf("using decoder for %v: %v\n", t, decoder)
+		return decoder
 	}
-
 
 	switch t.Kind() {
 	case reflect.Bool:
@@ -263,37 +260,6 @@ func uintDecoder(v types.Value, rv reflect.Value) {
 			panic(overflowError(n, rv.Type()))
 		}
 		rv.SetUint(u)
-	} else {
-		panic(&UnmarshalTypeMismatchError{v, rv.Type(), ""})
-	}
-}
-
-func timeDecoder(v types.Value, rv reflect.Value) {
-	if n, ok := v.(types.String); ok {
-
-		nanosSinceEpoch, err := strconv.ParseInt(string(n), 10, 0)
-		if err != nil {
-			panic(&UnmarshalTypeMismatchError{v, rv.Type(), "string for nanosSinceEpoch was not in a number format"})
-		}
-
-		if reflect.ValueOf(int64(0)).OverflowInt(nanosSinceEpoch){
-			panic(overflowError(types.Number(nanosSinceEpoch), rv.Type()))
-		}
-
-		fmt.Printf("rv is: %+v, kind: %v, type: %v\n", rv, rv.Kind(), rv.Type())
-
-		oldTime := time.Unix(0, nanosSinceEpoch)
-
-		newVal := reflect.ValueOf(&oldTime)
-
-		if !rv.IsNil() {
-			newVal = reflect.Indirect(rv)
-		}
-
-
- 		fmt.Printf("adding duration: %d", nanosSinceEpoch)
-		newVal.Interface().(*time.Time).Add(time.Duration(nanosSinceEpoch))
-		rv.Set(newVal)
 	} else {
 		panic(&UnmarshalTypeMismatchError{v, rv.Type(), ""})
 	}

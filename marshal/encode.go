@@ -15,8 +15,6 @@ import (
 	"sync"
 
 	"github.com/attic-labs/noms/go/types"
-	"time"
-	"strconv"
 )
 
 // Marshal converts a Go value to a Noms value.
@@ -223,16 +221,6 @@ func stringEncoder(v reflect.Value) types.Value {
 	return types.String(v.String())
 }
 
-func timeEncoder(v reflect.Value) types.Value {
-	if v.IsNil() {
-		return types.Number(-1)
-	}
-
-	nanosSinceEpoch := v.Interface().(*time.Time).UnixNano()
-
-	return types.String(strconv.FormatInt(nanosSinceEpoch, 10))
-}
-
 func nomsValueEncoder(v reflect.Value) types.Value {
 	return v.Interface().(types.Value)
 }
@@ -273,9 +261,9 @@ func typeEncoder(vrw types.ValueReadWriter, t reflect.Type, seenStructs map[stri
 		fmt.Println("does not implement marshalerInterface")
 	}
 
-	if t == reflect.TypeOf(time.Time{}) {
-		fmt.Printf("returning timeEncoder for %v\n", t)
-		return timeEncoder
+	if encoder := GetEncoder(t); encoder != nil {
+		fmt.Printf("using encoder for %v: %v\n", t, encoder)
+		return encoder
 	}
 
 	switch t.Kind() {
