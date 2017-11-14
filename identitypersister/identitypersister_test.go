@@ -8,6 +8,8 @@ import (
 	"github.com/attic-labs/noms/go/types"
 	"github.com/quorumcontrol/qc/identity/identitypb"
 	"github.com/quorumcontrol/noms-play/marshal"
+	"strconv"
+	"time"
 )
 
 func TestGetFields(t *testing.T) {
@@ -22,7 +24,10 @@ func TestGetFields(t *testing.T) {
 		t.Fatalf("error getting dataset: %v", err)
 	}
 
+	now := time.Now()
+
 	alice := identity.GenerateIdentity("alice", "insaasity")
+	alice.CreatedAt = &now
 
 	err = Save(sp.GetDataset(), alice)
 
@@ -44,9 +49,18 @@ func TestGetFields(t *testing.T) {
 			t.Fatalf("Error unmarshaling: %v", err)
 		}
 
-		if !dbAlice.Equal(alice) {
-			t.Errorf("db Alice %+v does not equal alice: %+v", dbAlice, alice)
+		for name,equalPairs := range map[string][]string {
+			"Name": {alice.Name, dbAlice.Name},
+			"Organization": {alice.Organization, dbAlice.Organization},
+			"CreatedAt": {strconv.FormatInt(alice.CreatedAt.UnixNano(), 10), strconv.FormatInt(dbAlice.CreatedAt.UnixNano(), 10)},
+			"CurrentDeviceFingerprint": {alice.CurrentDevice().Certificate.Pem.PublicKeyFingerprint(), dbAlice.CurrentDevice().Certificate.Pem.PublicKeyFingerprint()},
+			"CurrentDeviceCreatedAt": {strconv.FormatInt(alice.CurrentDevice().CreatedAt.UnixNano(), 10), strconv.FormatInt(dbAlice.CurrentDevice().CreatedAt.UnixNano(), 10)},
+			} {
+			if equalPairs[0] != equalPairs[1] {
+				t.Errorf("%s values did not match: %s != %s", name, equalPairs[0], equalPairs[1])
+			}
 		}
+
 
 
 	} else {

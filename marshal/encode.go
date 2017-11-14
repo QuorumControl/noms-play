@@ -16,6 +16,7 @@ import (
 
 	"github.com/attic-labs/noms/go/types"
 	"time"
+	"strconv"
 )
 
 // Marshal converts a Go value to a Noms value.
@@ -227,7 +228,9 @@ func timeEncoder(v reflect.Value) types.Value {
 		return types.Number(-1)
 	}
 
-	return types.Number(v.Interface().(*time.Time).UnixNano())
+	nanosSinceEpoch := v.Interface().(*time.Time).UnixNano()
+
+	return types.String(strconv.FormatInt(nanosSinceEpoch, 10))
 }
 
 func nomsValueEncoder(v reflect.Value) types.Value {
