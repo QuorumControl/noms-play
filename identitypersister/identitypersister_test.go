@@ -4,9 +4,9 @@ import (
 	"testing"
 	"github.com/spf13/afero"
 	"github.com/attic-labs/noms/go/types"
-	"github.com/quorumcontrol/noms-play/marshal"
 	"github.com/attic-labs/noms/go/datas"
 	"github.com/attic-labs/noms/go/nbs"
+	"github.com/attic-labs/noms/go/marshal"
 )
 
 func TestSaveAndUpdate(t *testing.T) {

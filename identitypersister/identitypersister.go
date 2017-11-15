@@ -2,11 +2,11 @@ package identitypersister
 
 import (
 	"fmt"
-	"github.com/quorumcontrol/noms-play/marshal"
 	"github.com/attic-labs/noms/go/datas"
 	"github.com/attic-labs/noms/go/types"
 	"time"
 	"math/rand"
+	"github.com/attic-labs/noms/go/marshal"
 )
 
 const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -27,9 +27,9 @@ const DefaultMemTableSize = 8 * (1 << 20) // 8MB
 
 
 type IdentityLike struct {
-	RootCertificate *Certificate
-	IntermediateCertificate *Certificate
-	Devices map[string]*DeviceLike
+	RootCertificate Certificate
+	IntermediateCertificate Certificate
+	Devices map[string]DeviceLike
 	Metadata map[string]string
 	UUID string
 }
@@ -40,7 +40,7 @@ func NewIdentityLike() *IdentityLike {
 		UUID: RandString(50),
 		RootCertificate: NewCertificate(),
 		IntermediateCertificate: NewCertificate(),
-		Devices: map[string]*DeviceLike{
+		Devices: map[string]DeviceLike{
 			initialDevice.UUID: initialDevice,
 		},
 		Metadata: map[string]string{
@@ -51,18 +51,15 @@ func NewIdentityLike() *IdentityLike {
 
 type DeviceLike struct {
 	UUID string
-	Certificate *Certificate
-	CreatedAt   *time.Time
+	Certificate Certificate
 	Description string
 	Metadata    map[string]string
 }
 
-func NewDeviceLike() *DeviceLike {
-	now := time.Now()
-	return &DeviceLike{
+func NewDeviceLike() DeviceLike {
+	return DeviceLike{
 		UUID: RandString(100),
 		Certificate: NewCertificate(),
-		CreatedAt: &now,
 		Description: RandString(200),
 	}
 }
@@ -71,8 +68,8 @@ type Certificate struct {
 	Pem string
 }
 
-func NewCertificate() *Certificate {
-	return &Certificate{Pem: RandString(2048)}
+func NewCertificate() Certificate {
+	return Certificate{Pem: RandString(2048)}
 }
 
 
