@@ -5,48 +5,77 @@ import (
 	"github.com/quorumcontrol/noms-play/marshal"
 	"github.com/attic-labs/noms/go/datas"
 	"github.com/attic-labs/noms/go/types"
-	"github.com/quorumcontrol/qc/identity/identitypb"
-	"reflect"
-	"github.com/quorumcontrol/qc/simpcert"
+	"time"
+	"math/rand"
 )
 
+const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+func RandString(n int) string {
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = letterBytes[rand.Intn(len(letterBytes))]
+	}
+	return string(b)
+}
+
 func init() {
-	simpcertType := reflect.TypeOf(simpcert.Certificate{})
-
-	marshal.RegisterEncoder(simpcertType, CertificateEncoder)
-	marshal.RegisterDecoder(simpcertType, CertificateDecoder)
+	rand.Seed(time.Now().UnixNano())
 }
 
-func CertificateEncoder(v reflect.Value) types.Value {
-	if !v.IsValid() {
-		return types.String("")
-	}
+const DefaultMemTableSize = 8 * (1 << 20) // 8MB
 
-	cert := v.Interface().(simpcert.Certificate)
-	pnter := &cert
 
-	bytes,err := pnter.Marshal()
-
-	if err != nil {
-		panic("cannot marshal the simpcert")
-	}
-
-	return types.String(string(bytes))
+type IdentityLike struct {
+	RootCertificate *Certificate
+	IntermediateCertificate *Certificate
+	Devices map[string]*DeviceLike
+	Metadata map[string]string
+	UUID string
 }
 
-func CertificateDecoder(v types.Value, rv reflect.Value) {
-	if publicPem, ok := v.(types.String); ok {
-
-		fmt.Printf("rv is: %+v, kind: %v, type: %v\n", rv, rv.Kind(), rv.Type())
-
-		cert := &simpcert.Certificate{}
-		cert.LoadFromString(string(publicPem))
-
-		rv.Set(reflect.ValueOf(*cert))
-	} else {
-		panic("simpcert stored in non string format")
+func NewIdentityLike() *IdentityLike {
+	initialDevice := NewDeviceLike()
+	return &IdentityLike{
+		UUID: RandString(50),
+		RootCertificate: NewCertificate(),
+		IntermediateCertificate: NewCertificate(),
+		Devices: map[string]*DeviceLike{
+			initialDevice.UUID: initialDevice,
+		},
+		Metadata: map[string]string{
+			"EncryptedRootKey": "",
+		},
 	}
 }
+
+type DeviceLike struct {
+	UUID string
+	Certificate *Certificate
+	CreatedAt   *time.Time
+	Description string
+	Metadata    map[string]string
+}
+
+func NewDeviceLike() *DeviceLike {
+	now := time.Now()
+	return &DeviceLike{
+		UUID: RandString(100),
+		Certificate: NewCertificate(),
+		CreatedAt: &now,
+		Description: RandString(200),
+	}
+}
+
+type Certificate struct {
+	Pem string
+}
+
+func NewCertificate() *Certificate {
+	return &Certificate{Pem: RandString(2048)}
+}
+
+
 
 func getIdentities(ds datas.Dataset) types.Map {
 	hv, ok := ds.MaybeHeadValue()
@@ -60,13 +89,13 @@ func getIdentities(ds datas.Dataset) types.Map {
 
 
 
-func Save(ds datas.Dataset, id *identitypb.Identity) error {
+func Save(ds datas.Dataset, id *IdentityLike) error {
 	val,err := marshal.Marshal(ds.Database(), *id)
 	if err != nil {
 		return fmt.Errorf("error marshaling: %v", err)
 	}
 
-	_, err = ds.Database().CommitValue(ds, getIdentities(ds).Edit().Set(types.String(id.Uid()), val).Map())
+	_, err = ds.Database().CommitValue(ds, getIdentities(ds).Edit().Set(types.String(id.UUID), val).Map())
 
 	if err != nil {
 		return fmt.Errorf("error committing values: %v", err)

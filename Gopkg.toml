@@ -24,7 +24,3 @@
 [[constraint]]
   name = "github.com/attic-labs/noms"
   revision = "76400c6b710112a3ec35cb963c3eea1bb13d9dd3"
-
-[[constraint]]
-  name = "github.com/quorumcontrol/qc"
-  source = "git@github.com:QuorumControl/qc.git"

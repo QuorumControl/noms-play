@@ -45,7 +45,6 @@ func timeDecoder(v types.Value, rv reflect.Value) {
 				newVal = reflect.Indirect(rv)
 			}
 
-
 			fmt.Printf("adding duration: %d\n", nanosSinceEpoch)
 			newVal.Interface().(*time.Time).Add(time.Duration(nanosSinceEpoch))
 			rv.Set(newVal)
